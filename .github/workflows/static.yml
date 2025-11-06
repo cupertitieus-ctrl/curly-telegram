@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bambu Labs A1 Combo Countdown</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #0a0a0a;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* Terminal cursor blinking effect */
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+
+        .cursor {
+            display: inline-block;
+            width: 8px;
+            height: 20px;
+            background: #00ff00;
+            margin-left: 4px;
+            animation: blink 1s infinite;
+            vertical-align: middle;
+        }
+
+        /* Views */
+        .view {
+            display: none;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .view.active {
+            display: block;
+        }
+
+        /* Home Page */
+        .home-view {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            max-width: 1200px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 1;
+        }
+
+        .echo-prompt {
+            color: #00ff00;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+
+        .echo-prompt::before {
+            content: "$ ";
+        }
+
+        .echo-output {
+            color: #00aa00;
+            margin-left: 20px;
+            margin-bottom: 20px;
+            white-space: pre-line;
+        }
+
+        .menu-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 30px;
+            width: 100%;
+            max-width: 1000px;
+            margin-top: 40px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .menu-item {
+            background: rgba(0, 255, 0, 0.05);
+            border: 2px solid rgba(0, 255, 0, 0.3);
+            border-radius: 4px;
+            padding: 25px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            z-index: 10;
+            pointer-events: auto;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .menu-item:hover {
+            border-color: #00ff00;
+            background: rgba(0, 255, 0, 0.1);
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .menu-item::before {
+            content: "> ";
+            color: #00ff00;
+            position: absolute;
+            left: 10px;
+            top: 25px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .menu-item:hover::before {
+            opacity: 1;
+        }
+
+        .menu-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+            display: block;
+        }
+
+        .menu-label {
+            font-size: 18px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #00ff00;
+        }
+
+        .menu-value {
+            font-size: 24px;
+            margin-top: 10px;
+            color: #00aa00;
+            font-weight: bold;
+        }
+
+        .info-widget {
+            background: rgba(0, 255, 0, 0.05);
+            border: 1px solid rgba(0, 255, 0, 0.2);
+            border-radius: 4px;
+            padding: 20px;
+            margin: 15px 0;
+        }
+
+        .info-label {
+            font-size: 12px;
+            color: #00aa00;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+        }
+
+        .info-value {
+            font-size: 28px;
+            color: #00ff00;
+            font-weight: bold;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* Full Screen Countdown */
+        .countdown-view {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #0a0a0a;
+            z-index: 9998;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .countdown-view.active {
+            display: flex;
+        }
+
+        .back-button {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 255, 0, 0.1);
+            border: 2px solid #00ff00;
+            color: #00ff00;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s;
+            z-index: 10001;
+            border-radius: 4px;
+        }
+
+        .back-button:hover {
+            background: rgba(0, 255, 0, 0.2);
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.5);
+        }
+
+        .back-button::before {
+            content: "< ";
+        }
+
+        .countdown-display {
+            text-align: center;
+        }
+
+        .countdown-label {
+            font-size: 32px;
+            margin-bottom: 30px;
+            color: #00ff00;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+        }
+
+        .time-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 20px;
+            max-width: 900px;
+            width: 100%;
+            margin: 30px 0;
+        }
+
+        .time-unit {
+            padding: 20px;
+            border: 2px solid rgba(0, 255, 0, 0.3);
+            border-radius: 4px;
+            background: rgba(0, 255, 0, 0.05);
+        }
+
+        .time-label {
+            font-size: 14px;
+            color: #00aa00;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+            letter-spacing: 2px;
+        }
+
+        .time-value {
+            font-size: 48px;
+            font-weight: bold;
+            font-variant-numeric: tabular-nums;
+            color: #00ff00;
+            text-shadow: 0 0 20px rgba(0, 255, 0, 0.8);
+        }
+
+        .status-line {
+            text-align: center;
+            margin-top: 40px;
+            font-size: 16px;
+            color: #00aa00;
+        }
+
+        .status-line::before {
+            content: "[STATUS] ";
+            color: #00ff00;
+        }
+
+        .ascii-art {
+            text-align: center;
+            font-size: 8px;
+            line-height: 1.2;
+            color: #00ff00;
+            margin: 20px 0;
+            opacity: 0.7;
+        }
+
+        /* Library View */
+        .library-view {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #0a0a0a;
+            z-index: 9998;
+            display: none;
+            flex-direction: column;
+            overflow-y: auto;
+            padding: 20px;
+        }
+        
+        .library-view.active {
+            display: flex;
+        }
+
+        .library-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .library-title {
+            font-size: 32px;
+            color: #00ff00;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            margin-bottom: 20px;
+        }
+
+        .library-controls {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .library-button {
+            background: rgba(0, 255, 0, 0.1);
+            border: 2px solid #00ff00;
+            color: #00ff00;
+            padding: 12px 24px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s;
+            border-radius: 4px;
+        }
+
+        .library-button:hover {
+            background: rgba(0, 255, 0, 0.2);
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.5);
+        }
+
+        .books-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .book-item {
+            background: rgba(0, 255, 0, 0.05);
+            border: 2px solid rgba(0, 255, 0, 0.3);
+            border-radius: 4px;
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .book-item:hover {
+            border-color: #00ff00;
+            background: rgba(0, 255, 0, 0.1);
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .book-item.finished {
+            opacity: 0.5;
+            border-color: rgba(0, 255, 0, 0.2);
+        }
+
+        .book-item.finished .book-title {
+            text-decoration: line-through;
+        }
+
+        .book-title {
+            font-size: 16px;
+            color: #00ff00;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+
+        .book-bookmark {
+            font-size: 12px;
+            color: #00aa00;
+            margin-top: 8px;
+        }
+
+        .book-bookmark::before {
+            content: "📖 Page: ";
+        }
+
+        .book-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            justify-content: center;
+        }
+
+        .book-action-btn {
+            background: rgba(0, 255, 0, 0.1);
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            padding: 6px 12px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s;
+            border-radius: 3px;
+        }
+
+        .book-action-btn:hover {
+            background: rgba(0, 255, 0, 0.2);
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+        }
+
+        .book-action-btn.finished {
+            background: rgba(0, 255, 0, 0.2);
+            border-color: #00aa00;
+        }
+
+        .bookmark-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 10002;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .bookmark-modal.active {
+            display: flex;
+        }
+
+        .bookmark-modal-content {
+            background: #0a0a0a;
+            border: 2px solid #00ff00;
+            border-radius: 4px;
+            padding: 30px;
+            max-width: 500px;
+            width: 90%;
+        }
+
+        .bookmark-modal-title {
+            font-size: 24px;
+            color: #00ff00;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .bookmark-input {
+            background: rgba(0, 255, 0, 0.1);
+            border: 2px solid #00ff00;
+            color: #00ff00;
+            padding: 12px;
+            font-family: 'Courier New', monospace;
+            font-size: 16px;
+            width: 100%;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+
+        .bookmark-input::placeholder {
+            color: #00aa00;
+        }
+
+        .bookmark-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .random-book-display {
+            text-align: center;
+            padding: 30px;
+            background: rgba(0, 255, 0, 0.1);
+            border: 2px solid #00ff00;
+            border-radius: 4px;
+            margin-bottom: 30px;
+        }
+
+        .random-book-title {
+            font-size: 28px;
+            color: #00ff00;
+            margin-bottom: 10px;
+        }
+
+        .random-book-subtitle {
+            font-size: 14px;
+            color: #00aa00;
+        }
+
+        /* Scanline effect */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(0, 0, 0, 0.15),
+                rgba(0, 0, 0, 0.15) 1px,
+                transparent 1px,
+                transparent 2px
+            );
+            pointer-events: none;
+            z-index: 10000;
+        }
+
+        @media (max-width: 768px) {
+            .menu-grid {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            
+            .time-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 15px;
+            }
+            
+            .time-value {
+                font-size: 36px;
+            }
+            
+            .countdown-label {
+                font-size: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Home View -->
+    <div class="view home-view active" id="homeView">
+        <div style="width: 100%; max-width: 1000px;">
+            <div class="menu-grid">
+                <div class="menu-item" id="timerBtn">
+                    <span class="menu-icon">⏱</span>
+                    <div class="menu-label">Countdown Timer</div>
+                    <div class="menu-value" id="timerPreview">--d --h --m</div>
+                </div>
+                
+                <div class="menu-item">
+                    <span class="menu-icon">🕐</span>
+                    <div class="menu-label">Current Time</div>
+                    <div class="menu-value" id="timeDisplay">--:--:--</div>
+                </div>
+                
+                <div class="menu-item">
+                    <span class="menu-icon">📅</span>
+                    <div class="menu-label">Date</div>
+                    <div class="menu-value" id="dateDisplay">--/--/----</div>
+                </div>
+                
+                <div class="menu-item">
+                    <span class="menu-icon">🍂</span>
+                    <div class="menu-label">Season</div>
+                    <div class="menu-value" id="seasonDisplay">--</div>
+                </div>
+                
+                <div class="menu-item">
+                    <span class="menu-icon">🌡</span>
+                    <div class="menu-label">Temperature</div>
+                    <div class="menu-value" id="tempDisplay">--°F</div>
+                </div>
+                
+                <div class="menu-item" id="libraryBtn">
+                    <span class="menu-icon">📚</span>
+                    <div class="menu-label">Library</div>
+                    <div class="menu-value">View Books</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Full Screen Countdown View -->
+    <div class="view countdown-view" id="countdownView">
+        <button class="back-button" id="backBtn">Back</button>
+        
+        <div class="ascii-art">
+╔════════════════════════════════════════╗
+║  ██████╗  █████╗ ███╗   ███╗██████╗   ║
+║  ██╔══██╗██╔══██╗████╗ ████║██╔══██╗  ║
+║  ██████╔╝███████║██╔████╔██║██████╔╝  ║
+║  ██╔══██╗██╔══██║██║╚██╔╝██║██╔══██╗  ║
+║  ██████╔╝██║  ██║██║ ╚═╝ ██║██████╔╝  ║
+║  ╚═════╝ ╚═╝  ╚═╝╚═╝     ╚═╝╚═════╝   ║
+╚════════════════════════════════════════╝
+        </div>
+
+        <div class="countdown-label">Days until I get a</div>
+        <div class="countdown-label" style="font-size: 36px; margin-top: 10px;">Bambu Labs A1 Combo</div>
+        
+        <div class="time-grid">
+            <div class="time-unit">
+                <div class="time-label">Days</div>
+                <div class="time-value" id="days">000</div>
+            </div>
+            <div class="time-unit">
+                <div class="time-label">Hours</div>
+                <div class="time-value" id="hours">00</div>
+            </div>
+            <div class="time-unit">
+                <div class="time-label">Minutes</div>
+                <div class="time-value" id="minutes">00</div>
+            </div>
+            <div class="time-unit">
+                <div class="time-label">Seconds</div>
+                <div class="time-value" id="seconds">00</div>
+            </div>
+            <div class="time-unit">
+                <div class="time-label">Milliseconds</div>
+                <div class="time-value" id="milliseconds" style="font-size: 36px;">000</div>
+            </div>
+        </div>
+
+        <div class="status-line" id="status"></div>
+    </div>
+
+    <!-- Library View -->
+    <div class="view library-view" id="libraryView">
+        <button class="back-button" id="libraryBackBtn">Back</button>
+        
+        <div style="max-width: 1200px; width: 100%; margin: 0 auto; padding-top: 60px;">
+            <div class="library-header">
+                <div class="library-title">📚 Library</div>
+                <div class="library-controls">
+                    <button class="library-button" id="randomBookBtn">Pick Random Book</button>
+                </div>
+                <div class="random-book-display" id="randomBookDisplay" style="display: none;">
+                    <div class="random-book-title" id="randomBookTitle"></div>
+                    <div class="random-book-subtitle">Your random selection</div>
+                </div>
+            </div>
+
+            <div class="books-grid" id="booksGrid">
+                <!-- Books will be populated by JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Bookmark Modal -->
+    <div class="bookmark-modal" id="bookmarkModal">
+        <div class="bookmark-modal-content">
+            <div class="bookmark-modal-title" id="bookmarkModalTitle">Set Bookmark</div>
+            <input type="number" class="bookmark-input" id="bookmarkInput" placeholder="Enter page number..." min="1">
+            <div class="bookmark-buttons">
+                <button class="library-button" id="cancelBookmarkBtn">Cancel</button>
+                <button class="library-button" id="saveBookmarkBtn">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // View management
+        function showView(viewId) {
+            document.querySelectorAll('.view').forEach(v => {
+                v.classList.remove('active');
+            });
+            const targetView = document.getElementById(viewId);
+            if (targetView) {
+                targetView.classList.add('active');
+            }
+        }
+
+        // Initialize everything when DOM is ready
+        document.addEventListener('DOMContentLoaded', function() {
+            // Ensure home view is active by default
+            showView('homeView');
+            
+            // Timer button
+            const timerBtn = document.getElementById('timerBtn');
+            if (timerBtn) {
+                timerBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    showView('countdownView');
+                });
+            }
+
+            // Back button
+            const backBtn = document.getElementById('backBtn');
+            if (backBtn) {
+                backBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    showView('homeView');
+                });
+            }
+
+            // Library button
+            const libraryBtn = document.getElementById('libraryBtn');
+            if (libraryBtn) {
+                libraryBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('Library button clicked');
+                    showView('libraryView');
+                    renderBooks();
+                });
+            } else {
+                console.error('Library button not found!');
+            }
+
+            // Library back button
+            const libraryBackBtn = document.getElementById('libraryBackBtn');
+            if (libraryBackBtn) {
+                libraryBackBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    showView('homeView');
+                });
+            }
+            
+            // Initialize displays
+            updateHomeDisplay();
+            updateCountdown();
+            getTemperature();
+            initializeLibrary();
+
+            // Update time every second
+            setInterval(updateHomeDisplay, 1000);
+            
+            // Update countdown every 10ms for smooth milliseconds
+            setInterval(updateCountdown, 10);
+        });
+
+        // Time functions
+        function getCurrentTime() {
+            const now = new Date();
+            let hours = now.getHours();
+            const minutes = padNumber(now.getMinutes(), 2);
+            const seconds = padNumber(now.getSeconds(), 2);
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12;
+            hours = hours ? hours : 12; // 0 should be 12
+            hours = padNumber(hours, 2);
+            return `${hours}:${minutes}:${seconds} ${ampm}`;
+        }
+
+        function getCurrentDate() {
+            const now = new Date();
+            const month = padNumber(now.getMonth() + 1, 2);
+            const day = padNumber(now.getDate(), 2);
+            const year = now.getFullYear();
+            return `${month}/${day}/${year}`;
+        }
+
+        function getCurrentSeason() {
+            const now = new Date();
+            const month = now.getMonth() + 1;
+            const day = now.getDate();
+            
+            // Approximate season dates
+            if (month === 12 || month === 1 || month === 2) return 'Winter';
+            if (month === 3 || month === 4 || month === 5) return 'Spring';
+            if (month === 6 || month === 7 || month === 8) return 'Summer';
+            if (month === 9 || month === 10 || month === 11) return 'Fall';
+            return 'Unknown';
+        }
+
+        async function getTemperature() {
+            // Using OpenWeatherMap API - you'll need to get a free API key
+            // For now, we'll use a placeholder or try to get location
+            try {
+                // Try to get user's location
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(async (position) => {
+                        const lat = position.coords.latitude;
+                        const lon = position.coords.longitude;
+                        
+                        // Note: You'll need to add your API key here
+                        // const apiKey = 'YOUR_API_KEY';
+                        // const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=imperial`;
+                        
+                        // For now, show a placeholder
+                        updateTemperature('--');
+                    });
+                } else {
+                    updateTemperature('--');
+                }
+            } catch (error) {
+                updateTemperature('--');
+            }
+            
+            // Fallback: show a random temperature (you can replace this with actual API call)
+            updateTemperature(Math.floor(Math.random() * 30) + 50); // 50-80°F
+        }
+
+        function updateTemperature(temp) {
+            if (temp === '--') {
+                document.getElementById('tempDisplay').textContent = '--°F';
+            } else {
+                document.getElementById('tempDisplay').textContent = `${temp}°F`;
+            }
+        }
+
+        function padNumber(num, length) {
+            return num.toString().padStart(length, '0');
+        }
+
+        // Countdown timer functions
+        function calculateTimeUntilChristmas() {
+            const now = new Date();
+            const currentYear = now.getFullYear();
+            let christmas = new Date(currentYear, 11, 25);
+            
+            if (now > christmas) {
+                christmas = new Date(currentYear + 1, 11, 25);
+            }
+            
+            const diffTime = christmas - now;
+            
+            const days = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diffTime % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diffTime % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diffTime % (1000 * 60)) / 1000);
+            const milliseconds = Math.floor(diffTime % 1000);
+            
+            return {
+                days,
+                hours,
+                minutes,
+                seconds,
+                milliseconds,
+                total: diffTime
+            };
+        }
+
+        function updateCountdown() {
+            const time = calculateTimeUntilChristmas();
+            const statusElement = document.getElementById('status');
+            
+            // Update countdown display
+            document.getElementById('days').textContent = padNumber(time.days, 3);
+            document.getElementById('hours').textContent = padNumber(time.hours, 2);
+            document.getElementById('minutes').textContent = padNumber(time.minutes, 2);
+            document.getElementById('seconds').textContent = padNumber(time.seconds, 2);
+            document.getElementById('milliseconds').textContent = padNumber(time.milliseconds, 3);
+            
+            // Update preview on home page
+            document.getElementById('timerPreview').textContent = `${time.days}d ${time.hours}h ${time.minutes}m`;
+            
+            // Update status message
+            if (time.total <= 0) {
+                statusElement.textContent = "[STATUS] Christmas is here! Time to get that Bambu Labs A1 Combo!";
+            } else if (time.days === 0 && time.hours === 0 && time.minutes === 0 && time.seconds < 10) {
+                statusElement.textContent = "[STATUS] Final countdown! Almost there!";
+            } else if (time.days === 0) {
+                statusElement.textContent = "[STATUS] Less than 1 day remaining! The wait is almost over!";
+            } else if (time.days === 1) {
+                statusElement.textContent = "[STATUS] Only 1 day remaining! The wait is almost over!";
+            } else {
+                statusElement.textContent = `[STATUS] System active. ${time.days} days, ${time.hours}h, ${time.minutes}m, ${time.seconds}s remaining until the sacred day...`;
+            }
+        }
+
+        function updateHomeDisplay() {
+            // Update time
+            const time = getCurrentTime();
+            document.getElementById('timeDisplay').textContent = time;
+            
+            // Update date
+            const date = getCurrentDate();
+            document.getElementById('dateDisplay').textContent = date;
+            
+            // Update season
+            const season = getCurrentSeason();
+            document.getElementById('seasonDisplay').textContent = season;
+            
+            // Update countdown preview
+            const timeData = calculateTimeUntilChristmas();
+            document.getElementById('timerPreview').textContent = `${timeData.days}d ${timeData.hours}h ${timeData.minutes}m`;
+        }
+
+        // Library functions
+        const books = [
+            "Purple Space Chickens 1",
+            "Purple Space Chickens 2",
+            "Purple Space Chickens 3",
+            "Purple Space Chickens 4",
+            "Dont Trust The Nacho Hamster",
+            "Charlie Picasso 1",
+            "Charlie Picasso 2",
+            "Charlie Picasso 3",
+            "Charlie Picasso 4",
+            "Ungifted",
+            "The Fort",
+            "Slacker",
+            "Supergifted",
+            "Snoop",
+            "Faker",
+            "Mixed Up",
+            "The Superteacher Project",
+            "Restart",
+            "Mr Lemoncello Prequel",
+            "Mr Lemoncello 1",
+            "Mr Lemoncello 2",
+            "Mr Lemoncello 3",
+            "Mr Lemoncello 4",
+            "Mr Lemoncello 5",
+            "Mr Lemoncello 6",
+            "Percy Jackson 1",
+            "Percy Jackson 2",
+            "Percy Jackson 3",
+            "Percy Jackson 4",
+            "Percy Jackson 5",
+            "Hatchet",
+            "Word Of Mouse",
+            "Rolex Book",
+            "Diary Of a Wimpy kid Party Pooper",
+            "The Life of a Sparkly Turtle",
+            "Far From Genius 1",
+            "Far From Genius 2",
+            "Diary of a famous cat",
+            "Ms. Pennypickle's puzzle quest.",
+            "Blindsight"
+        ];
+
+        let currentBookForBookmark = null;
+
+        function initializeLibrary() {
+            // Load bookmarks from localStorage
+            if (!localStorage.getItem('bookBookmarks')) {
+                localStorage.setItem('bookBookmarks', JSON.stringify({}));
+            }
+
+            // Load finished books from localStorage
+            if (!localStorage.getItem('finishedBooks')) {
+                localStorage.setItem('finishedBooks', JSON.stringify({}));
+            }
+
+            // Random book button
+            const randomBookBtn = document.getElementById('randomBookBtn');
+            if (randomBookBtn) {
+                randomBookBtn.addEventListener('click', pickRandomBook);
+            }
+
+            // Bookmark modal buttons
+            const cancelBookmarkBtn = document.getElementById('cancelBookmarkBtn');
+            const saveBookmarkBtn = document.getElementById('saveBookmarkBtn');
+            const bookmarkInput = document.getElementById('bookmarkInput');
+
+            if (cancelBookmarkBtn) {
+                cancelBookmarkBtn.addEventListener('click', closeBookmarkModal);
+            }
+
+            if (saveBookmarkBtn) {
+                saveBookmarkBtn.addEventListener('click', saveBookmark);
+            }
+
+            if (bookmarkInput) {
+                bookmarkInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        saveBookmark();
+                    }
+                });
+            }
+
+            // Close modal when clicking outside
+            const bookmarkModal = document.getElementById('bookmarkModal');
+            if (bookmarkModal) {
+                bookmarkModal.addEventListener('click', function(e) {
+                    if (e.target === bookmarkModal) {
+                        closeBookmarkModal();
+                    }
+                });
+            }
+        }
+
+        function renderBooks() {
+            const booksGrid = document.getElementById('booksGrid');
+            if (!booksGrid) return;
+
+            const bookmarks = JSON.parse(localStorage.getItem('bookBookmarks') || '{}');
+            const finishedBooks = JSON.parse(localStorage.getItem('finishedBooks') || '{}');
+            
+            booksGrid.innerHTML = '';
+            
+            books.forEach(book => {
+                const bookItem = document.createElement('div');
+                const isBookFinished = finishedBooks[book] || false;
+                
+                if (isBookFinished) {
+                    bookItem.className = 'book-item finished';
+                } else {
+                    bookItem.className = 'book-item';
+                }
+                
+                bookItem.innerHTML = `
+                    <div class="book-title">${book}</div>
+                    ${bookmarks[book] ? `<div class="book-bookmark">${bookmarks[book]}</div>` : ''}
+                    <div class="book-actions">
+                        <button class="book-action-btn ${isBookFinished ? 'finished' : ''}" data-book="${book}" data-action="finished">
+                            ${isBookFinished ? '✓ Finished' : 'Mark Finished'}
+                        </button>
+                    </div>
+                `;
+                
+                // Click on book item (not on buttons) opens bookmark modal
+                bookItem.addEventListener('click', (e) => {
+                    if (!e.target.closest('.book-action-btn')) {
+                        openBookmarkModal(book);
+                    }
+                });
+                
+                // Finished button click handler
+                const finishedBtn = bookItem.querySelector('[data-action="finished"]');
+                if (finishedBtn) {
+                    finishedBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        toggleFinished(book);
+                    });
+                }
+                
+                booksGrid.appendChild(bookItem);
+            });
+        }
+
+        function openBookmarkModal(bookTitle) {
+            currentBookForBookmark = bookTitle;
+            const modal = document.getElementById('bookmarkModal');
+            const modalTitle = document.getElementById('bookmarkModalTitle');
+            const bookmarkInput = document.getElementById('bookmarkInput');
+            const bookmarks = JSON.parse(localStorage.getItem('bookBookmarks') || '{}');
+
+            if (modal && modalTitle && bookmarkInput) {
+                modalTitle.textContent = `Set Bookmark: ${bookTitle}`;
+                bookmarkInput.value = bookmarks[bookTitle] || '';
+                bookmarkInput.focus();
+                modal.classList.add('active');
+            }
+        }
+
+        function closeBookmarkModal() {
+            const modal = document.getElementById('bookmarkModal');
+            if (modal) {
+                modal.classList.remove('active');
+                currentBookForBookmark = null;
+                const bookmarkInput = document.getElementById('bookmarkInput');
+                if (bookmarkInput) {
+                    bookmarkInput.value = '';
+                }
+            }
+        }
+
+        function saveBookmark() {
+            if (!currentBookForBookmark) return;
+
+            const bookmarkInput = document.getElementById('bookmarkInput');
+            if (!bookmarkInput) return;
+
+            const pageNumber = bookmarkInput.value.trim();
+            
+            if (pageNumber && parseInt(pageNumber) > 0) {
+                const bookmarks = JSON.parse(localStorage.getItem('bookBookmarks') || '{}');
+                bookmarks[currentBookForBookmark] = parseInt(pageNumber);
+                localStorage.setItem('bookBookmarks', JSON.stringify(bookmarks));
+                
+                // Update the display
+                renderBooks();
+                closeBookmarkModal();
+            } else if (pageNumber === '') {
+                // Remove bookmark if empty
+                const bookmarks = JSON.parse(localStorage.getItem('bookBookmarks') || '{}');
+                delete bookmarks[currentBookForBookmark];
+                localStorage.setItem('bookBookmarks', JSON.stringify(bookmarks));
+                renderBooks();
+                closeBookmarkModal();
+            }
+        }
+
+        function toggleFinished(bookTitle) {
+            const finishedBooks = JSON.parse(localStorage.getItem('finishedBooks') || '{}');
+            
+            if (finishedBooks[bookTitle]) {
+                // Unfinish the book
+                delete finishedBooks[bookTitle];
+            } else {
+                // Mark as finished
+                finishedBooks[bookTitle] = true;
+            }
+            
+            localStorage.setItem('finishedBooks', JSON.stringify(finishedBooks));
+            renderBooks();
+        }
+
+        function pickRandomBook() {
+            const finishedBooks = JSON.parse(localStorage.getItem('finishedBooks') || '{}');
+            
+            // Filter out finished books
+            const unfinishedBooks = books.filter(book => !finishedBooks[book]);
+            
+            if (unfinishedBooks.length === 0) {
+                // All books are finished
+                const randomBookDisplay = document.getElementById('randomBookDisplay');
+                const randomBookTitle = document.getElementById('randomBookTitle');
+                
+                if (randomBookDisplay && randomBookTitle) {
+                    randomBookTitle.textContent = 'All books are finished! 📚';
+                    randomBookDisplay.style.display = 'block';
+                    randomBookDisplay.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+                return;
+            }
+            
+            const randomBook = unfinishedBooks[Math.floor(Math.random() * unfinishedBooks.length)];
+            const randomBookDisplay = document.getElementById('randomBookDisplay');
+            const randomBookTitle = document.getElementById('randomBookTitle');
+            
+            if (randomBookDisplay && randomBookTitle) {
+                randomBookTitle.textContent = randomBook;
+                randomBookDisplay.style.display = 'block';
+                
+                // Scroll to the random book display
+                randomBookDisplay.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+    </script>
+</body>
+</html>
